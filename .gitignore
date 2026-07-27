@@ -1,0 +1,8 @@
+.env
+node_modules/
+data/
+*.log
+BUILD_LOG.md
+OBSERVATIONS.md
+CLAUDE.md
+.claude/settings.local.json
