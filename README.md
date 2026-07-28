@@ -1,61 +1,53 @@
-# Shop A: Adyen Checkout Integration (WIP)
+# Payments Integration: Card Lifecycle in a Sandbox Environment (WIP)
 
-A solo, part-time build of a card payments integration against **Adyen's test
-environment**. No real money, no production traffic — this is a learning/demo
-project working through the full lifecycle of a card payment.
+A self-directed learning project to understand how modern card payments actually
+work end to end: authorisation, 3D Secure, capture, refunds, and tokenised
+recurring billing, by building a real integration rather than reading about one.
 
-Full specification lives in [`prd.md`](prd.md).
+I chose to build against **Adyen's test environment** as the vendor for this
+exercise, since it exposes a fairly complete, well-documented API surface for
+the full payment lifecycle. The concepts, state machines, and failure modes
+here are general to card payments, not specific to any one processor.
 
-## What this is
+Full internal specification: [`prd.md`](prd.md).
 
-**Shop A** is a fictional direct-to-consumer store. The build implements, end
-to end, using real (test-environment) Adyen API calls:
+## Scope: full lifecycle of a card payment
 
-- Checkout Sessions flow with Drop-in
-- 3D Secure (frictionless, challenge, and failure paths)
-- Manual capture, partial capture, cancel, refund
-- Tokenisation and merchant-initiated (subscription) rebills
-- HMAC-verified inbound webhooks as the source of truth for order state
+Built as a fictional store ("Shop A") selling physical goods, with a
+subscription product to justify recurring billing. This scenario was chosen
+because it is the minimum setup that naturally requires every stage of the
+lifecycle:
 
-Nothing is mocked or simulated — every capability is a real call against
-Adyen's TEST environment.
+- Checkout session and hosted payment UI
+- 3D Secure (frictionless, challenge, and challenge-failure paths)
+- Manual capture, partial capture, cancel
+- Full and partial refunds
+- Tokenisation and merchant-initiated (subscription) rebills, with no shopper
+  or browser present
+- HMAC-verified inbound webhooks as the single source of truth for order state
+
+Sandbox/test mode only throughout. No real money at any point.
 
 ## Status: work in progress
 
-Being built milestone by milestone:
-
 | Milestone | Scope | Status |
 |---|---|---|
-| M1 | Authenticated connection + verified webhook receiver | In progress |
-| M2 | A shopper pays (Drop-in, webhook-driven authorisation) | Not started |
+| M1 | Authenticated connection and verified webhook receiver | In progress |
+| M2 | A shopper pays (checkout session, webhook-driven authorisation) | Not started |
 | M3 | 3D Secure | Not started |
 | M4 | Capture, partial capture, cancel, refund | Not started |
-| M5 | Tokenisation + merchant-initiated rebill | Not started |
-
-See [`prd.md`](prd.md) Section 4 for full milestone detail and acceptance
-criteria.
+| M5 | Tokenisation and merchant-initiated rebill | Not started |
 
 ## Stack
 
-- Node.js >= 20, Express
-- `@adyen/api-library` (Adyen Checkout API, TEST environment)
-- SQLite (`better-sqlite3`) for local persistence
-- No frontend framework — static Drop-in page
+- Node.js, Express
+- Adyen Checkout API (test environment) as the payments provider
+- SQLite for local persistence
+- No frontend framework, just a minimal hosted checkout page
 
 ## Setup
 
 1. `npm install`
-2. Copy `.env.example` to `.env` and fill in your own Adyen test credentials
-   (API key, client key, merchant account, HMAC key).
-3. `npm run doctor` — verifies credentials by listing available payment
-   methods.
-4. `npm start` — runs the app.
-
-A public tunnel (e.g. `localtunnel`) is required for Adyen to deliver
-webhooks to a local machine during development.
-
-## Notes
-
-This is a personal build exercise, not a production integration. Test-mode
-Adyen credentials only; no live payment methods or real money are ever
-involved.
+2. Copy `.env.example` to `.env` and fill in your own test credentials.
+3. `npm run doctor` to verify credentials are working.
+4. `npm start` to run the app.
