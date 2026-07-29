@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Shop A demo cart</title>
+</head>
+<body>
+  <h1>Shop A</h1>
+  <p>Demo cart for manual testing — not a real store.</p>
+
+  <table>
+    <tr>
+      <td>Sample item</td>
+      <td>
+        A$ <input type="text" id="amount" value="1.00" inputmode="decimal">
+      </td>
+    </tr>
+  </table>
+
+  <button id="checkout-button">Checkout</button>
+  <div id="status"></div>
+
+  <script type="module">
+    const button = document.getElementById('checkout-button');
+    const amountInput = document.getElementById('amount');
+    const statusEl = document.getElementById('status');
+
+    button.addEventListener('click', async () => {
+      const dollars = Number.parseFloat(amountInput.value);
+      if (!Number.isFinite(dollars) || dollars <= 0) {
+        statusEl.textContent = 'Enter a valid amount greater than zero.';
+        return;
+      }
+
+      // Convert major units (dollars) to minor units (cents) as an integer.
+      // Rounding here, once, is the only place this UI touches money math —
+      // everything past this point is an integer, per prd.md's money rule.
+      const amountMinorUnits = Math.round(dollars * 100);
+
+      button.disabled = true;
+      statusEl.textContent = 'Creating order...';
+
+      try {
+        const response = await fetch('/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: amountMinorUnits, currency: 'AUD' }),
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          statusEl.textContent = 'Could not create order: ' + (body.error || response.status);
+          button.disabled = false;
+          return;
+        }
+
+        const { orderReference } = await response.json();
+        window.location.href = `/checkout.html?order=${orderReference}`;
+      } catch (err) {
+        statusEl.textContent = 'An error occurred creating the order.';
+        console.error(err);
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

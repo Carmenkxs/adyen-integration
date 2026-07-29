@@ -114,7 +114,7 @@ A shopper can pay, be challenged by 3D Secure, be charged later than they author
 | Non-card payment methods | Breadth, not depth. Each adds its own test-data quirks |
 | Risk rules and RevenueProtect configuration | Configuration exercise, not integration |
 | Reporting and settlement file parsing | Batch file handling, not API work |
-| Real UI beyond what checkout requires | This is a backend integration |
+| Real UI beyond what checkout requires | This is a backend integration. **Explicit exception**: a single static demo page (`public/index.html`) with one hardcoded line item, a freetext amount field, and a "Checkout" button that calls `POST /orders` and redirects into `checkout.html`. Added deliberately, after M2, purely to make manual testing and demoing faster — it is not a cart, has no product catalogue, and must not grow features. If it starts needing more than one item or persistence, that is scope creep and should be refused |
 | Multi-currency | Adds settlement complexity, no new API surface |
 | Going live | Test environment only |
 
@@ -200,6 +200,9 @@ Money is authorised on a real card in Adyen's test environment, and Shop A's dat
 - Order references are unguessable (sufficient entropy, not sequential or derived from predictable input)
 
 **Effort**: M
+
+**Post-milestone addition (deliberate scope exception, added after M2 was otherwise complete)**
+A single static demo/cart page, `public/index.html`, showing one hardcoded line item with a freetext amount field (entered in major units, e.g. dollars, converted client-side to an integer minor-units value before ever reaching the API) and a "Checkout" button. The button calls `POST /orders` with that amount and `AUD`, then redirects the browser to `checkout.html?order=<reference>`. Purpose: faster manual testing and demoing, nothing more. See Section 3's "Out of scope" table for the exact boundary — this must not grow into a real cart (no catalogue, no persistence, no multiple items).
 
 ---
 
