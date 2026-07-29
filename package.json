@@ -12,6 +12,7 @@
     "doctor": "node --env-file=.env scripts/doctor.js"
   },
   "dependencies": {
+    "@adyen/adyen-web": "^6.41.0",
     "@adyen/api-library": "^32.0.0",
     "better-sqlite3": "^13.0.1",
     "express": "^5.2.1"

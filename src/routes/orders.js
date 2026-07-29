@@ -1,0 +1,138 @@
+import express from 'express';
+import { generateOrderReference } from '../domain/orderReference.js';
+import { createOrder, getOrderByReference, markSessionOpen } from '../store/orders.js';
+import { createShopper, getShopperById } from '../store/shoppers.js';
+import { createSession } from '../adyen/client.js';
+import { logger } from '../logging/logger.js';
+
+export function createOrdersRouter({ env }) {
+  const router = express.Router();
+
+  router.post('/', (req, res) => {
+    const { amount, currency } = req.body || {};
+
+    if (!Number.isInteger(amount) || amount <= 0) {
+      return res.status(400).json({ error: 'amount must be a positive integer in minor units' });
+    }
+    if (!currency || typeof currency !== 'string') {
+      return res.status(400).json({ error: 'currency is required' });
+    }
+
+    // shopperReference is an opaque internal id, deliberately not derived from
+    // email/name — prd.md requires it stay free of personally identifiable information.
+    const shopper = createShopper({ shopperReference: generateOrderReference() });
+    const orderReference = generateOrderReference();
+
+    createOrder({ orderReference, shopperId: shopper.id, amount, currency });
+
+    logger.info('order.created', { orderReference, amount, currency });
+    res.status(201).json({ orderReference });
+  });
+
+  router.post('/:ref/session', async (req, res) => {
+    const orderReference = req.params.ref;
+    const order = getOrderByReference(orderReference);
+
+    if (!order) {
+      return res.status(404).json({ error: 'order not found' });
+    }
+
+    if (order.status !== 'created' && order.status !== 'session_open') {
+      return res.status(409).json({ error: `order is already ${order.status}, cannot open a new session` });
+    }
+
+    // Amount and currency always come from the order record itself, never from the
+    // request body — the order's amount is fixed at creation and this endpoint has no
+    // legitimate reason to accept a client-supplied override. This is what actually
+    // guarantees the same order reference can never produce sessions with different
+    // amounts, rather than relying on a client to pass matching values.
+    const shopperRow = order.shopper_id ? getShopperById(order.shopper_id) : null;
+
+    try {
+      const session = await createSession(env, {
+        orderReference,
+        amount: order.amount,
+        currency: order.currency,
+        returnUrl: `${env.publicBaseUrl}/orders/${orderReference}/return`,
+        shopperReference: shopperRow ? shopperRow.shopper_reference : undefined,
+      });
+
+      markSessionOpen(orderReference);
+
+      res.json({
+        id: session.id,
+        sessionData: session.sessionData,
+        clientKey: env.adyenClientKey,
+      });
+    } catch (err) {
+      logger.error('order.session_failed', { orderReference, error: err.message });
+      res.status(502).json({ error: 'failed to create Adyen session' });
+    }
+  });
+
+  router.get('/:ref/return', (req, res) => {
+    const orderReference = req.params.ref;
+    const order = getOrderByReference(orderReference);
+
+    if (!order) {
+      return res.status(404).send('Order not found.');
+    }
+
+    res.set('Content-Type', 'text/html').send(renderReturnPage({ env }));
+  });
+
+  return router;
+}
+
+// Reads sessionId + redirectResult from the URL and calls submitDetails.
+// The result shown here is provisional only — order state is set exclusively
+// by the webhook handler, never by this page.
+function renderReturnPage({ env }) {
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Completing payment</title>
+  <link rel="stylesheet" href="/vendor/adyen-web/adyen.css">
+</head>
+<body>
+  <div id="status">Finalising your payment...</div>
+  <script type="module">
+    import { AdyenCheckout } from '/vendor/adyen-web/index.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('sessionId');
+    const redirectResult = params.get('redirectResult');
+    const statusEl = document.getElementById('status');
+
+    if (!sessionId || !redirectResult) {
+      statusEl.textContent = 'Missing redirect parameters. This page must be reached via an Adyen redirect.';
+    } else {
+      try {
+        const checkout = await AdyenCheckout({
+          environment: 'test',
+          clientKey: ${JSON.stringify(env.adyenClientKey)},
+          countryCode: 'AU',
+          session: { id: sessionId },
+          onPaymentCompleted: (data) => {
+            statusEl.textContent = 'Payment provisionally completed (resultCode: ' + data.resultCode + '). Awaiting final confirmation.';
+          },
+          onPaymentFailed: (data) => {
+            statusEl.textContent = 'Payment provisionally failed (resultCode: ' + (data && data.resultCode) + '). Awaiting final confirmation.';
+          },
+          onError: (error) => {
+            statusEl.textContent = 'An error occurred finalising the payment.';
+            console.error(error);
+          },
+        });
+
+        checkout.submitDetails({ details: { redirectResult } });
+      } catch (err) {
+        statusEl.textContent = 'An error occurred finalising the payment.';
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>`;
+}

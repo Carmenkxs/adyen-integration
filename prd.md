@@ -174,11 +174,11 @@ A command that proves, from cold, that credentials work and that a webhook arriv
 Take a real card payment from a browser through to a confirmed authorisation driven by webhook, not by the API response.
 
 **What gets built**
-- `POST /orders` creating an order record and returning an order reference
+- `POST /orders` creating an order record and returning an order reference. The order reference must be unguessable (not sequential, not derived from predictable input) before the session-fetch endpoint is exposed, since anyone holding a reference can call it
 - `POST /orders/:ref/session` calling Checkout `POST /sessions` with amount, currency, order reference, return URL, and `shopperReference`
 - Static checkout page mounting Adyen Drop-in against the returned session, using the client key
 - Return URL handler that reads the redirect result and shows a provisional outcome
-- Webhook handler for the authorisation event, which is the only thing permitted to move an order to a confirmed state
+- Webhook handler for the authorisation event, which is the only thing permitted to move an order to a confirmed state. Before confirming, the handler validates the notification's amount and currency against the order's expected amount and currency, and logs any mismatch rather than confirming silently
 
 **Unit of value**
 Money is authorised on a real card in Adyen's test environment, and Shop A's database learns about it the way a production system would.
@@ -192,9 +192,12 @@ Money is authorised on a real card in Adyen's test environment, and Shop A's dat
 **Acceptance criteria**
 - The order reaches a confirmed state only via the webhook handler. The session response and the redirect result may set a provisional state but never a final one
 - A declined test card produces a distinguishable failure state and a clear message, not a generic error
+- A `refused` order can still transition to `authorised` on a later webhook, since Drop-in allows the shopper to retry with a different card after a decline within the same session. `refused` is not treated as a terminal state
+- The webhook handler rejects (or confirms with a logged mismatch, not silently) an authorisation notification whose amount or currency does not match the order's expected amount and currency
 - An authorisation webhook for an unknown order reference is logged and acknowledged, never thrown
 - The same order reference cannot produce 2 sessions with different amounts
 - `shopperReference` contains no personally identifiable information
+- Order references are unguessable (sufficient entropy, not sequential or derived from predictable input)
 
 **Effort**: M
 

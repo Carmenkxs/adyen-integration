@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Shop A checkout</title>
+  <link rel="stylesheet" href="/vendor/adyen-web/adyen.css">
+</head>
+<body>
+  <div id="status"></div>
+  <div id="dropin-container"></div>
+
+  <script type="module">
+    import { AdyenCheckout, Dropin, Card } from '/vendor/adyen-web/index.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const orderReference = params.get('order');
+    const statusEl = document.getElementById('status');
+
+    if (!orderReference) {
+      statusEl.textContent = 'Missing order reference. Append ?order=<orderReference> to this URL.';
+    } else {
+      try {
+        const sessionResponse = await fetch(`/orders/${orderReference}/session`, { method: 'POST' });
+        if (!sessionResponse.ok) {
+          const body = await sessionResponse.json().catch(() => ({}));
+          statusEl.textContent = 'Could not start checkout: ' + (body.error || sessionResponse.status);
+        } else {
+          const session = await sessionResponse.json();
+
+          const checkout = await AdyenCheckout({
+            environment: 'test',
+            clientKey: session.clientKey,
+            countryCode: 'AU',
+            session: { id: session.id, sessionData: session.sessionData },
+            onPaymentCompleted: (data) => {
+              // Provisional only. The order is not confirmed until the webhook arrives.
+              statusEl.textContent = 'Payment submitted (resultCode: ' + data.resultCode + '). Awaiting confirmation.';
+            },
+            onPaymentFailed: (data) => {
+              statusEl.textContent = 'Payment did not succeed (resultCode: ' + (data && data.resultCode) + ').';
+            },
+            onError: (error) => {
+              statusEl.textContent = 'An error occurred during checkout.';
+              console.error(error);
+            },
+          });
+
+          new Dropin(checkout, { paymentMethodComponents: [Card] }).mount('#dropin-container');
+        }
+      } catch (err) {
+        statusEl.textContent = 'An error occurred starting checkout.';
+        console.error(err);
+      }
+    }
+  </script>
+</body>
+</html>

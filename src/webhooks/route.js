@@ -2,6 +2,7 @@ import express from 'express';
 import { verifyStandardHmac, verifyTokenisationHmac } from './hmac.js';
 import { recordWebhookEvent } from '../store/webhookEvents.js';
 import { logWebhook, logger } from '../logging/logger.js';
+import { getOrderByReference, markAuthorised, markRefused, markError } from '../store/orders.js';
 
 // Candidate header names for the tokenisation webhook signature.
 // Docs are inconsistent on the exact name; confirmed value goes in BUILD_LOG.md
@@ -86,9 +87,60 @@ function handleStandardNotification({ res, parsed, env }) {
       hmacResult: 'valid',
       outcome: inserted ? 'stored' : 'duplicate_ignored',
     });
+
+    // Business-state processing runs only on first delivery, never on a redelivery,
+    // per prd.md's "deduplicate before processing" rule.
+    if (inserted && item.eventCode === 'AUTHORISATION') {
+      processAuthorisationEvent(item);
+    }
   }
 
   return res.status(202).end();
+}
+
+function processAuthorisationEvent(item) {
+  const orderReference = item.merchantReference;
+  const order = orderReference ? getOrderByReference(orderReference) : null;
+
+  if (!order) {
+    // Never throw on an unrecognised order reference — log and move on.
+    logger.warn('order.webhook_unknown_reference', {
+      orderReference,
+      pspReference: item.pspReference,
+    });
+    return;
+  }
+
+  const notifiedAmount = item.amount || {};
+  const amountMatches = notifiedAmount.value === order.amount;
+  const currencyMatches = notifiedAmount.currency === order.currency;
+
+  if (!amountMatches || !currencyMatches) {
+    logger.error('order.webhook_amount_mismatch', {
+      orderReference,
+      pspReference: item.pspReference,
+      expected: { amount: order.amount, currency: order.currency },
+      received: { amount: notifiedAmount.value, currency: notifiedAmount.currency },
+    });
+    // Do not confirm on a mismatch — move the order to a visibly failed state
+    // rather than silently leaving the prior optimistic state in place.
+    markError(orderReference);
+    return;
+  }
+
+  if (item.success === 'true') {
+    // Deliberately unconditional: Drop-in allows the shopper to retry with a
+    // different card after a decline within the same session, so a `refused`
+    // order must still be able to reach `authorised` on a later webhook.
+    markAuthorised(orderReference, {
+      pspReference: item.pspReference,
+      authorisedAmount: notifiedAmount.value,
+    });
+  } else {
+    // Guarded: a late or out-of-order decline must never downgrade an order
+    // that a later, already-processed webhook has confirmed as authorised.
+    markRefused(orderReference, { pspReference: item.pspReference });
+  }
 }
 
 function handleTokenisationEvent({ res, rawBody, parsed, tokenisationHeader, env }) {

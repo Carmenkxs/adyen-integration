@@ -31,6 +31,7 @@ function migrate(database) {
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_reference TEXT NOT NULL UNIQUE,
+      shopper_id INTEGER REFERENCES shoppers(id),
       amount INTEGER NOT NULL,
       currency TEXT NOT NULL,
       status TEXT NOT NULL,
@@ -72,4 +73,9 @@ function migrate(database) {
       processed INTEGER NOT NULL DEFAULT 0
     );
   `);
+
+  const orderColumns = database.prepare("PRAGMA table_info(orders)").all();
+  if (!orderColumns.some((col) => col.name === 'shopper_id')) {
+    database.exec('ALTER TABLE orders ADD COLUMN shopper_id INTEGER REFERENCES shoppers(id)');
+  }
 }
