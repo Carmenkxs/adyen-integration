@@ -3,41 +3,75 @@
 <head>
   <meta charset="utf-8">
   <title>Shop A checkout</title>
+  <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/vendor/adyen-web/adyen.css">
-  <style>
-    #status { margin-bottom: 1rem; }
-    #status h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
-    #status p { margin: 0; color: #444; }
-  </style>
 </head>
 <body>
-  <div id="status"></div>
-  <div id="dropin-container"></div>
+  <main class="page-shell">
+    <div class="eyebrow">Shop A — checkout</div>
+    <div id="status"></div>
+    <div id="dropin-container"></div>
+  </main>
 
   <script type="module">
     import { AdyenCheckout, Dropin, Card } from '/vendor/adyen-web/index.js';
-    import { getResultMessage } from '/result-messages.js';
+    import { getResultMessage, getOrderStatusMessage } from '/result-messages.js';
+
+    const POLL_INTERVAL_MS = 1500;
+    const POLL_TIMEOUT_MS = 20000;
 
     const params = new URLSearchParams(window.location.search);
     const orderReference = params.get('order');
     const statusEl = document.getElementById('status');
 
     function showResult(resultCode) {
-      const { heading, body } = getResultMessage(resultCode);
-      statusEl.innerHTML = `<h2>${heading}</h2><p>${body}</p>`;
+      const { tone, heading, body } = getResultMessage(resultCode);
+      statusEl.innerHTML = `<div class="status-message" data-tone="${tone}"><h2>${heading}</h2><p>${body}</p><p class="polling">Checking for final confirmation...</p></div>`;
       // Drop-in shows its own generic result overlay once a payment attempt
       // finishes; there's no documented way to suppress just that overlay
       // while keeping the component mounted. Removing it avoids showing our
       // specific message alongside Drop-in's own generic one.
       document.getElementById('dropin-container').remove();
+      pollForConfirmation();
+    }
+
+    async function pollForConfirmation() {
+      const deadline = Date.now() + POLL_TIMEOUT_MS;
+
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+
+        let order;
+        try {
+          const response = await fetch(`/orders/${orderReference}`);
+          if (!response.ok) continue;
+          order = await response.json();
+        } catch {
+          continue;
+        }
+
+        const finalMessage = getOrderStatusMessage(order.status);
+        if (finalMessage) {
+          statusEl.innerHTML = `<div class="status-message" data-tone="${finalMessage.tone}"><h2>${finalMessage.heading}</h2><p>${finalMessage.body}</p></div>`;
+          return;
+        }
+      }
+
+      // Timed out without reaching a confirmed status. Not a failure claim —
+      // just honest that we don't know yet.
+      const pollingEl = statusEl.querySelector('.polling');
+      if (pollingEl) {
+        pollingEl.textContent = "This is taking longer than expected. Check back shortly, or contact support with your order reference if this persists.";
+        pollingEl.classList.remove('polling');
+      }
     }
 
     function showPlainText(text) {
-      statusEl.textContent = text;
+      statusEl.innerHTML = `<div class="status-message" data-tone="neutral"><p>${text}</p></div>`;
     }
 
     if (!orderReference) {
-      showPlainText('Missing order reference. Append ?order=<orderReference> to this URL.');
+      showPlainText('Missing order reference. Append ?order=&lt;orderReference&gt; to this URL.');
     } else {
       try {
         const sessionResponse = await fetch(`/orders/${orderReference}/session`, { method: 'POST' });

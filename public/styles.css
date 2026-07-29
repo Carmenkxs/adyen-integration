@@ -1,0 +1,225 @@
+/* Shop A — shared styles for the demo cart, checkout, and return pages.
+   Design context: .impeccable.md */
+
+@import url('https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@500;700&family=Red+Hat+Text:wght@400;500&family=Red+Hat+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Neutrals, tinted toward a cool slate hue (250) rather than pure gray */
+  --color-bg: oklch(98% 0.004 250);
+  --color-surface: oklch(100% 0.002 250);
+  --color-border: oklch(90% 0.006 250);
+  --color-text: oklch(24% 0.012 250);
+  --color-text-muted: oklch(48% 0.014 250);
+
+  /* Accent — confident, restrained blue, used sparingly for primary actions */
+  --color-accent: oklch(47% 0.15 258);
+  --color-accent-hover: oklch(41% 0.15 258);
+  --color-accent-contrast: oklch(99% 0.005 258);
+
+  /* Semantic tones for payment outcomes. Each has a soft surface tint and a
+     stronger foreground for the heading/icon, at accessible contrast. */
+  --color-success-surface: oklch(96% 0.04 150);
+  --color-success-fg: oklch(38% 0.11 150);
+  --color-danger-surface: oklch(96% 0.03 25);
+  --color-danger-fg: oklch(42% 0.15 25);
+  --color-warning-surface: oklch(96% 0.045 85);
+  --color-warning-fg: oklch(42% 0.11 70);
+  --color-neutral-surface: oklch(95% 0.006 250);
+  --color-neutral-fg: oklch(38% 0.014 250);
+
+  /* 4pt spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+
+  --radius: 10px;
+  --font-display: 'Red Hat Display', system-ui, sans-serif;
+  --font-body: 'Red Hat Text', system-ui, sans-serif;
+  --font-mono: 'Red Hat Mono', ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  margin: 0;
+  color: var(--color-text);
+}
+
+h1 { font-size: 1.75rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.125rem; font-weight: 500; }
+
+p {
+  margin: 0;
+  max-width: 60ch;
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+/* Page shell: narrow, centered single column — these are checkout-style
+   pages, not dashboards. */
+.page-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-3xl) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Panel: the one reusable container for cart, form, and status content */
+.panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.item-row .item-name {
+  font-weight: 500;
+}
+
+.amount-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.amount-field input {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  width: 6.5em;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.amount-field input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Buttons */
+.btn {
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  border: none;
+  border-radius: calc(var(--radius) - 4px);
+  padding: var(--space-md) var(--space-lg);
+  cursor: pointer;
+  transition: background-color 150ms ease-out;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.btn-primary:disabled {
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Status messages. Tone is applied as a data attribute driven by
+   result-messages.js, so copy and visual treatment never drift apart. */
+.status-message {
+  border-radius: var(--radius);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  animation: status-in 200ms ease-out;
+}
+
+.status-message h2 {
+  font-size: 1rem;
+}
+
+.status-message p {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.status-message[data-tone="success"] {
+  background: var(--color-success-surface);
+  color: var(--color-success-fg);
+}
+
+.status-message[data-tone="danger"] {
+  background: var(--color-danger-surface);
+  color: var(--color-danger-fg);
+}
+
+.status-message[data-tone="warning"] {
+  background: var(--color-warning-surface);
+  color: var(--color-warning-fg);
+}
+
+.status-message[data-tone="neutral"] {
+  background: var(--color-neutral-surface);
+  color: var(--color-neutral-fg);
+}
+
+.status-message .polling {
+  font-size: 0.875rem;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+@keyframes status-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-message { animation: none; }
+}

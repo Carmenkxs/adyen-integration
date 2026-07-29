@@ -29,6 +29,18 @@ export function createOrdersRouter({ env }) {
     res.status(201).json({ orderReference });
   });
 
+  // Read-only status check, used by checkout.html to poll for the webhook-confirmed
+  // outcome after Drop-in's own (provisional) result. Safe to expose by reference alone:
+  // order references are unguessable (crypto.randomUUID), same threat model as the
+  // session-fetch endpoint, and this returns status only, no payment details.
+  router.get('/:ref', (req, res) => {
+    const order = getOrderByReference(req.params.ref);
+    if (!order) {
+      return res.status(404).json({ error: 'order not found' });
+    }
+    res.json({ orderReference: order.order_reference, status: order.status });
+  });
+
   router.post('/:ref/session', async (req, res) => {
     const orderReference = req.params.ref;
     const order = getOrderByReference(orderReference);
@@ -93,14 +105,14 @@ function renderReturnPage({ env }) {
 <head>
   <meta charset="utf-8">
   <title>Completing payment</title>
+  <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/vendor/adyen-web/adyen.css">
-  <style>
-    #status h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
-    #status p { margin: 0; color: #444; }
-  </style>
 </head>
 <body>
-  <div id="status"><p>Finalising your payment...</p></div>
+  <main class="page-shell">
+    <div class="eyebrow">Shop A — checkout</div>
+    <div id="status"><div class="status-message" data-tone="neutral"><p>Finalising your payment...</p></div></div>
+  </main>
   <script type="module">
     import { AdyenCheckout } from '/vendor/adyen-web/index.js';
     import { getResultMessage } from '/result-messages.js';
@@ -111,12 +123,12 @@ function renderReturnPage({ env }) {
     const statusEl = document.getElementById('status');
 
     function showResult(resultCode) {
-      const { heading, body } = getResultMessage(resultCode);
-      statusEl.innerHTML = \`<h2>\${heading}</h2><p>\${body}</p>\`;
+      const { tone, heading, body } = getResultMessage(resultCode);
+      statusEl.innerHTML = \`<div class="status-message" data-tone="\${tone}"><h2>\${heading}</h2><p>\${body}</p></div>\`;
     }
 
     if (!sessionId || !redirectResult) {
-      statusEl.innerHTML = '<p>Missing redirect parameters. This page must be reached via an Adyen redirect.</p>';
+      statusEl.innerHTML = '<div class="status-message" data-tone="danger"><p>Missing redirect parameters. This page must be reached via an Adyen redirect.</p></div>';
     } else {
       try {
         const checkout = await AdyenCheckout({

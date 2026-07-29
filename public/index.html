@@ -3,32 +3,41 @@
 <head>
   <meta charset="utf-8">
   <title>Shop A demo cart</title>
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <h1>Shop A</h1>
-  <p>Demo cart for manual testing — not a real store.</p>
+  <main class="page-shell">
+    <div class="eyebrow">Shop A — demo cart</div>
+    <h1>Shop A</h1>
+    <p class="text-muted">Demo cart for manual testing — not a real store.</p>
 
-  <table>
-    <tr>
-      <td>Sample item</td>
-      <td>
-        A$ <input type="text" id="amount" value="1.00" inputmode="decimal">
-      </td>
-    </tr>
-  </table>
+    <div class="panel">
+      <div class="item-row">
+        <span class="item-name">Sample item</span>
+        <label class="amount-field">
+          A$
+          <input type="text" id="amount" value="1.00" inputmode="decimal" aria-label="Amount in dollars">
+        </label>
+      </div>
+      <button id="checkout-button" class="btn btn-primary">Checkout</button>
+    </div>
 
-  <button id="checkout-button">Checkout</button>
-  <div id="status"></div>
+    <div id="status"></div>
+  </main>
 
   <script type="module">
     const button = document.getElementById('checkout-button');
     const amountInput = document.getElementById('amount');
     const statusEl = document.getElementById('status');
 
+    function showStatus(text, tone) {
+      statusEl.innerHTML = `<div class="status-message" data-tone="${tone}"><p>${text}</p></div>`;
+    }
+
     button.addEventListener('click', async () => {
       const dollars = Number.parseFloat(amountInput.value);
       if (!Number.isFinite(dollars) || dollars <= 0) {
-        statusEl.textContent = 'Enter a valid amount greater than zero.';
+        showStatus('Enter a valid amount greater than zero.', 'danger');
         return;
       }
 
@@ -38,7 +47,7 @@
       const amountMinorUnits = Math.round(dollars * 100);
 
       button.disabled = true;
-      statusEl.textContent = 'Creating order...';
+      showStatus('Creating order...', 'neutral');
 
       try {
         const response = await fetch('/orders', {
@@ -49,7 +58,7 @@
 
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
-          statusEl.textContent = 'Could not create order: ' + (body.error || response.status);
+          showStatus('Could not create order: ' + (body.error || response.status), 'danger');
           button.disabled = false;
           return;
         }
@@ -57,7 +66,7 @@
         const { orderReference } = await response.json();
         window.location.href = `/checkout.html?order=${orderReference}`;
       } catch (err) {
-        statusEl.textContent = 'An error occurred creating the order.';
+        showStatus('An error occurred creating the order.', 'danger');
         console.error(err);
         button.disabled = false;
       }
