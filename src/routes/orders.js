@@ -94,19 +94,29 @@ function renderReturnPage({ env }) {
   <meta charset="utf-8">
   <title>Completing payment</title>
   <link rel="stylesheet" href="/vendor/adyen-web/adyen.css">
+  <style>
+    #status h2 { margin: 0 0 0.25rem; font-size: 1.1rem; }
+    #status p { margin: 0; color: #444; }
+  </style>
 </head>
 <body>
-  <div id="status">Finalising your payment...</div>
+  <div id="status"><p>Finalising your payment...</p></div>
   <script type="module">
     import { AdyenCheckout } from '/vendor/adyen-web/index.js';
+    import { getResultMessage } from '/result-messages.js';
 
     const params = new URLSearchParams(window.location.search);
     const sessionId = params.get('sessionId');
     const redirectResult = params.get('redirectResult');
     const statusEl = document.getElementById('status');
 
+    function showResult(resultCode) {
+      const { heading, body } = getResultMessage(resultCode);
+      statusEl.innerHTML = \`<h2>\${heading}</h2><p>\${body}</p>\`;
+    }
+
     if (!sessionId || !redirectResult) {
-      statusEl.textContent = 'Missing redirect parameters. This page must be reached via an Adyen redirect.';
+      statusEl.innerHTML = '<p>Missing redirect parameters. This page must be reached via an Adyen redirect.</p>';
     } else {
       try {
         const checkout = await AdyenCheckout({
@@ -115,20 +125,20 @@ function renderReturnPage({ env }) {
           countryCode: 'AU',
           session: { id: sessionId },
           onPaymentCompleted: (data) => {
-            statusEl.textContent = 'Payment provisionally completed (resultCode: ' + data.resultCode + '). Awaiting final confirmation.';
+            showResult(data.resultCode);
           },
           onPaymentFailed: (data) => {
-            statusEl.textContent = 'Payment provisionally failed (resultCode: ' + (data && data.resultCode) + '). Awaiting final confirmation.';
+            showResult(data && data.resultCode);
           },
           onError: (error) => {
-            statusEl.textContent = 'An error occurred finalising the payment.';
+            showResult('Error');
             console.error(error);
           },
         });
 
         checkout.submitDetails({ details: { redirectResult } });
       } catch (err) {
-        statusEl.textContent = 'An error occurred finalising the payment.';
+        showResult('Error');
         console.error(err);
       }
     }
