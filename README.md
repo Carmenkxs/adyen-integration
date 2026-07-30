@@ -32,8 +32,8 @@ Sandbox/test mode only throughout. No real money at any point.
 
 | Milestone | Scope | Status |
 |---|---|---|
-| M1 | Authenticated connection and verified webhook receiver | In progress |
-| M2 | A shopper pays (checkout session, webhook-driven authorisation) | Not started |
+| M1 | Authenticated connection and verified webhook receiver | Done |
+| M2 | A shopper pays (checkout session, webhook-driven authorisation) | Done |
 | M3 | 3D Secure | Not started |
 | M4 | Capture, partial capture, cancel, refund | Not started |
 | M5 | Tokenisation and merchant-initiated rebill | Not started |
@@ -44,6 +44,14 @@ Sandbox/test mode only throughout. No real money at any point.
 - Adyen Checkout API (test environment) as the payments provider
 - SQLite for local persistence
 - No frontend framework, just a minimal hosted checkout page
+
+## Screenshots (WIP)
+
+| Demo cart | Payment declined |
+|---|---|
+| ![Demo cart](docs/screenshots/demo-cart.png) | ![Payment declined](docs/screenshots/payment-declined.png) |
+
+More states (approved, pending, error) to follow as they're captured.
 
 ## Setup
 
