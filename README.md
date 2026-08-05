@@ -34,7 +34,7 @@ Sandbox/test mode only throughout. No real money at any point.
 |---|---|---|
 | M1 | Authenticated connection and verified webhook receiver | Done |
 | M2 | A shopper pays (checkout session, webhook-driven authorisation) | Done |
-| M3 | 3D Secure | Not started |
+| M3 | 3D Secure | Done |
 | M4 | Capture, partial capture, cancel, refund | Not started |
 | M5 | Tokenisation and merchant-initiated rebill | Not started |
 
