@@ -212,7 +212,7 @@ A single static demo/cart page, `public/index.html`, showing one hardcoded line 
 Handle the case where the shopper's bank interrupts the payment to challenge them, including when that challenge fails.
 
 **What gets built**
-- 3D Secure enabled on the session request
+- 3D Secure exercised via Adyen's documented 3D Secure test cards against the existing session request. Confirmed by observation (see BUILD_LOG.md 2026-08-05) that forcing it via `authenticationData.attemptAuthentication: always` is not necessary: the documented test card numbers alone trigger the challenge on this account's test configuration. Not forcing it is also the better default to build towards, since Adyen's own guidance favours risk-based Dynamic 3D Secure over forced authentication in production — forcing it would have been a testing convenience worth flagging as such, not a pattern to leave in place, so its absence here is not a gap
 - Full handling of the additional action returned by Adyen: the Drop-in surfaces the challenge, and the server resolves the final outcome
 - Explicit handling of 4 outcomes: frictionless success, challenge passed, challenge failed, challenge abandoned
 - Order state machine extended to represent "awaiting shopper action" as a real state with a timeout, not an implicit gap
@@ -220,6 +220,8 @@ Handle the case where the shopper's bank interrupts the payment to challenge the
 **Minimum state set after this milestone**
 
 `created`, `session_open`, `awaiting_shopper_action`, `authorised`, `refused`, `abandoned`, `error`.
+
+**Architectural finding, confirmed by observation, not assumption (see BUILD_LOG.md 2026-08-05)**: with the Sessions flow and Drop-in, the merchant backend receives no signal of any kind while a 3D Secure challenge is in progress — confirmed by watching a real challenge live (order status and server logs both showed nothing between session creation and the final webhook). This matches Adyen's own documentation, which states the whole exchange is handled client-side. There is therefore no event to key `awaiting_shopper_action` off other than session creation itself. It is set synchronously alongside `session_open` (effectively: from the moment a session exists, the order is awaiting some shopper action, whether that's submitting a card at all or resolving a challenge) rather than detected via a mid-flow signal. This was originally assumed to require a distinct detection point; it does not, and inventing one (e.g. a client-side ping when Drop-in renders the challenge) was considered and rejected as an untrusted, race-prone signal that works against the Sessions flow's own design intent.
 
 `awaiting_shopper_action` must carry a timestamp so abandonment is detectable by age rather than only by an event that may never arrive. Add further states only if the build proves they are needed, and record why in OBSERVATIONS.md.
 

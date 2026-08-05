@@ -1,6 +1,12 @@
 import express from 'express';
 import { generateOrderReference } from '../domain/orderReference.js';
-import { createOrder, getOrderByReference, markSessionOpen } from '../store/orders.js';
+import {
+  createOrder,
+  getOrderByReference,
+  markSessionOpen,
+  markAwaitingShopperAction,
+  checkAndMarkAbandoned,
+} from '../store/orders.js';
 import { createShopper, getShopperById } from '../store/shoppers.js';
 import { createSession } from '../adyen/client.js';
 import { logger } from '../logging/logger.js';
@@ -34,7 +40,7 @@ export function createOrdersRouter({ env }) {
   // order references are unguessable (crypto.randomUUID), same threat model as the
   // session-fetch endpoint, and this returns status only, no payment details.
   router.get('/:ref', (req, res) => {
-    const order = getOrderByReference(req.params.ref);
+    const order = checkAndMarkAbandoned(req.params.ref);
     if (!order) {
       return res.status(404).json({ error: 'order not found' });
     }
@@ -43,13 +49,17 @@ export function createOrdersRouter({ env }) {
 
   router.post('/:ref/session', async (req, res) => {
     const orderReference = req.params.ref;
-    const order = getOrderByReference(orderReference);
+    // Check-and-mark-abandoned first, so a stale awaiting_shopper_action order is
+    // correctly reflected as abandoned before deciding whether a new session can
+    // be opened on it — 'abandoned' is allowed below precisely so this recovers.
+    const order = checkAndMarkAbandoned(orderReference);
 
     if (!order) {
       return res.status(404).json({ error: 'order not found' });
     }
 
-    if (order.status !== 'created' && order.status !== 'session_open') {
+    const reopenableStatuses = ['created', 'session_open', 'awaiting_shopper_action', 'abandoned'];
+    if (!reopenableStatuses.includes(order.status)) {
       return res.status(409).json({ error: `order is already ${order.status}, cannot open a new session` });
     }
 
@@ -61,6 +71,13 @@ export function createOrdersRouter({ env }) {
     const shopperRow = order.shopper_id ? getShopperById(order.shopper_id) : null;
 
     try {
+      // NOTE: idempotency key is unchanged from M2 and does not vary by attempt
+      // number. This is verified safe for session_open/awaiting_shopper_action
+      // refreshes (Adyen returns the identical, still-usable session — tested in
+      // M2). Whether the SAME key still returns a usable session after a genuine
+      // abandoned -> retry recovery (potentially much later) is untested — verify
+      // this specifically when driving the abandonment outcome through a real
+      // browser test, rather than assuming it here.
       const session = await createSession(env, {
         orderReference,
         amount: order.amount,
@@ -70,6 +87,7 @@ export function createOrdersRouter({ env }) {
       });
 
       markSessionOpen(orderReference);
+      markAwaitingShopperAction(orderReference);
 
       res.json({
         id: session.id,

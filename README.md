@@ -47,11 +47,11 @@ Sandbox/test mode only throughout. No real money at any point.
 
 ## Screenshots (WIP)
 
-| Demo cart | Payment declined |
-|---|---|
-| ![Demo cart](docs/screenshots/demo-cart.png) | ![Payment declined](docs/screenshots/payment-declined.png) |
+| Demo cart | Payment declined | Payment confirmed |
+|---|---|---|
+| ![Demo cart](docs/screenshots/demo-cart.png) | ![Payment declined](docs/screenshots/payment-declined.png) | ![Payment confirmed](docs/screenshots/payment-confirmed.png) |
 
-More states (approved, pending, error) to follow as they're captured.
+More states (pending, error) to follow as they're captured.
 
 ## Setup
 

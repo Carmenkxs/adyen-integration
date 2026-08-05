@@ -70,6 +70,11 @@ const ORDER_STATUS_MESSAGES = {
     heading: 'Something needs attention',
     body: "We couldn't reconcile this payment automatically. Nothing further will happen on this page — please contact support with your order reference.",
   },
+  abandoned: {
+    tone: 'warning',
+    heading: 'Checkout timed out',
+    body: "This checkout wasn't completed in time. Nothing was charged — you can start again with a new checkout.",
+  },
 };
 
 export function getOrderStatusMessage(status) {
